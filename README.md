@@ -25,9 +25,8 @@ rather than reproducing proofs or teaching you recipes to memorize.
 There will be 12 lectures on the following dates (the exercise session is on the
 following day). The topics allocated to the dates may well change!
 
-+---------------+---------------------------------------------------------+-----------+
 | Lecture date	| Topic                                                   | Exercises |
-+---------------+---------------------------------------------------------+-----------+
+|---------------|---------------------------------------------------------|-----------|
 | 14 April      | Introduction and probability basics                     |           | 
 | 21 April      | Estimation and error: describing data and distributions |           | 
 | 28 April      | Statistical models and inference                        |           | 
@@ -43,4 +42,3 @@ following day). The topics allocated to the dates may well change!
 | 7 July        | Gaussian processes                                      |           | 
 | 14 July       | Study week                                              |           | 
 | 21 July       | Exam (maybe; date to be decided with the participants)  |           | 
-+---------------+---------------------------------------------------------+-----------+
