@@ -9,7 +9,7 @@ Lecturer: PD Dr. Coryn Bailer-Jones
 
 Assistant: Dr. Morgan Fouesneau
 
-Summer semester 2014
+Summer semester 2015
 
 This course will provide an introduction to using statistics and computational
 methods to analyse data. It comprises one 2-hour lecture per week, plus one
