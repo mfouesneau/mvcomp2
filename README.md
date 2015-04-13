@@ -25,6 +25,7 @@ the Course website is available
 
 **This repository gives the homeworks related datasets and eventually corrections**
 
+The repository will be updated **after each class** to give the assignments. All datasets, gists of code will also be included.
 
 ## Lectures
 
