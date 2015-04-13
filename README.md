@@ -4,8 +4,11 @@ Faculty of Physics and Astronomy, University of Heidelberg*
 # Computational Statistics and Data Analysis (MVComp2)
 
 Course LSF entry
+
 Lecturer: PD Dr. Coryn Bailer-Jones
+
 Assistant: Dr. Morgan Fouesneau
+
 Summer semester 2014
 
 This course will provide an introduction to using statistics and computational
@@ -25,18 +28,18 @@ rather than reproducing proofs or teaching you recipes to memorize.
 There will be 12 lectures on the following dates (the exercise session is on the
 following day). The topics allocated to the dates may well change!
 
-| Lecture date	| Topic                                                   | Exercises |
-|---------------|---------------------------------------------------------|-----------|
-| 14 April      | Introduction and probability basics                     | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb)|
-| 5 May         | Linear models and regression                            |           | 
-| 12 May        | (Bayesian) Model fitting                                |           | 
-| 19 May        | Monte Carlo methods                                     |           | 
-| 26 May        | Model comparison and selection                          |           | 
-| 2 June        | No lecture                                              |           | 
-| 9 June        | Model complexity                                        |           | 
-| 16 June       | Likelihood and optimization                             |           | 
-| 23 June       | Nonparametric methods                                   |           | 
-| 30 June       | Something else (details TBD)                            |           | 
-| 7 July        | Gaussian processes                                      |           | 
-| 14 July       | Study week                                              |           | 
-| 21 July       | Exam (maybe; date to be decided with the participants)  |           | 
+| Lecture date    | Topic                                                     | Exercises                                                                                    | 
+| --------------- | --------------------------------------------------------- | -----------                                                                                  | 
+| 14 April        | Introduction and probability basics                       | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb) | 
+| 5 May           | Linear models and regression                              |                                                                                              | 
+| 12 May          | (Bayesian) Model fitting                                  |                                                                                              | 
+| 19 May          | Monte Carlo methods                                       |                                                                                              | 
+| 26 May          | Model comparison and selection                            |                                                                                              | 
+| 2 June          | No lecture                                                |                                                                                              | 
+| 9 June          | Model complexity                                          |                                                                                              | 
+| 16 June         | Likelihood and optimization                               |                                                                                              | 
+| 23 June         | Nonparametric methods                                     |                                                                                              | 
+| 30 June         | Something else (details TBD)                              |                                                                                              | 
+| 7 July          | Gaussian processes                                        |                                                                                              | 
+| 14 July         | Study week                                                |                                                                                              | 
+| 21 July         | Exam (maybe; date to be decided with the participants)    |                                                                                              | 
