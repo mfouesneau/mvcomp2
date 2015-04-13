@@ -20,6 +20,9 @@ This course will take a pragmatic approach. The focus will be on concepts,
 understanding problems, and the application of techniques to solving problems,
 rather than reproducing proofs or teaching you recipes to memorize.
 
+the Course website is available
+[here](http://www.mpia.de/homes/calj/compstat_ss2015/main.html)
+
 **This repository gives the homeworks related datasets and eventually corrections**
 
 
