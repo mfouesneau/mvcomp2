@@ -27,9 +27,7 @@ following day). The topics allocated to the dates may well change!
 
 | Lecture date	| Topic                                                   | Exercises |
 |---------------|---------------------------------------------------------|-----------|
-| 14 April      | Introduction and probability basics                     |           | 
-| 21 April      | Estimation and error: describing data and distributions |           | 
-| 28 April      | Statistical models and inference                        |           | 
+| 14 April      | Introduction and probability basics                     | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb)|
 | 5 May         | Linear models and regression                            |           | 
 | 12 May        | (Bayesian) Model fitting                                |           | 
 | 19 May        | Monte Carlo methods                                     |           | 
