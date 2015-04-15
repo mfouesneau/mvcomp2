@@ -31,7 +31,7 @@ Examples of solutions (hardly unique) will be included eventually.
 
 ## Some homework guidelines
 
-**This notebook has no meaning of imposing a format** to give us back your homework. It only gives me a convenient way to keep both texts and codes at the same place.
+**Notebooks have no meaning of imposing a format** to give us back your homework. It only gives me a convenient way to keep both texts and codes at the same place.
 
 
 The assignment for next week is to finish the exploration of the main routines/functions of the language of your choice and to also give the solutions to the exercises: **both** plotting/exploration and exercises parts are expected for next week.
