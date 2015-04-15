@@ -33,6 +33,11 @@ The repository will be updated **after each class** to give the assignments. All
 
 [Wakari (python)](https://wakari.io/)
 
+### MCMC libraries
+
+[emcee (python](http://dan.iel.fm/emcee/current/) 
+
+[STAN (C/C++)](http://mc-stan.org/)
 
 ## Lectures
 
