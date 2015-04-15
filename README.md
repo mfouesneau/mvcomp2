@@ -37,7 +37,7 @@ Examples of solutions (hardly unique) will be included eventually.
 The assignment for next week is to finish the exploration of the main routines/functions of the language of your choice and to also give the solutions to the exercises: **both** plotting/exploration and exercises parts are expected for next week.
 
 
-* ** We do not mark your coding skills **, any language is possible, take the one that is convenient and efficient. 
+* **We do not mark your coding skills**, any language is possible, take the one that is convenient and efficient. 
 * This means **we do not read the codes**. We do not look out for comments in the codes, but **we will not guess** what a plot means. Be explicit and describe even in once sentence what you did.
 
 * Feel free to use the notebooks (it may not be the most efficient), be careful when printing (Check out nbconvert to produce a pdf or even latex document)
