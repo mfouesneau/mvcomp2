@@ -9,7 +9,7 @@ Lecturer: PD Dr. Coryn Bailer-Jones
 
 Assistant: Dr. Morgan Fouesneau
 
-Summer semester 2014
+Summer semester 2015
 
 This course will provide an introduction to using statistics and computational
 methods to analyse data. It comprises one 2-hour lecture per week, plus one
@@ -25,6 +25,7 @@ the Course website is available
 
 **This repository gives the homeworks related datasets and eventually corrections**
 
+The repository will be updated **after each class** to give the assignments. All datasets, gists of code will also be included.
 
 ## Lectures
 
@@ -34,7 +35,9 @@ following day). The topics allocated to the dates may well change!
 | Lecture date    | Topic                                                     | Exercises                                                                                    | 
 | --------------- | --------------------------------------------------------- | -----------                                                                                  | 
 | 14 April        | Introduction and probability basics                       | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb) | 
-| 5 May           | Estimation and errors: Describing data                    |  [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap2_ex.ipynb) [star.csv](https://raw.githubusercontent.com/mfouesneau/mvcomp2/master/star.csv)| 
+|21 April|	Estimation and error: describing data and distributions | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap2_ex.ipynb) [star.csv](https://raw.githubusercontent.com/mfouesneau/mvcomp2/master/star.csv)|
+|28 April|	Statistical models and inference||
+| 5 May           | Linear models and regression                    |                      | 
 | 12 May          | (Bayesian) Model fitting                                  |                                                                                              | 
 | 19 May          | Monte Carlo methods                                       |                                                                                              | 
 | 26 May          | Model comparison and selection                            |                                                                                              | 
