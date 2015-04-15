@@ -34,7 +34,7 @@ following day). The topics allocated to the dates may well change!
 
 | Lecture date    | Topic                                                     | Exercises                                                                                    | 
 | --------------- | --------------------------------------------------------- | -----------                                                                                  | 
-| 14 April        | Introduction and probability basics                       | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb) | 
+| 14 April        | Introduction and probability basics                       | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap1_ex.ipynb) [rvs.dat](https://raw.githubusercontent.com/mfouesneau/mvcomp2/master/rvs.dat)| 
 |21 April|	Estimation and error: describing data and distributions | [notebook](http://nbviewer.ipython.org/github/mfouesneau/mvcomp2/blob/master/chap2_ex.ipynb) [star.csv](https://raw.githubusercontent.com/mfouesneau/mvcomp2/master/star.csv)|
 |28 April|	Statistical models and inference||
 | 5 May           | Linear models and regression                    |                      | 
