@@ -27,6 +27,8 @@ the Course website is available
 
 The repository will be updated **after each class** to give the assignments. All datasets, gists of code will also be included.
 
+Examples of solutions (hardly unique) will be included eventually.
+
 ## Some homework guidelines
 
 **This notebook has no meaning of imposing a format** to give us back your homework. It only gives me a convenient way to keep both texts and codes at the same place.
@@ -40,12 +42,24 @@ The assignment for next week is to finish the exploration of the main routines/f
 
 * Feel free to use the notebooks (it may not be the most efficient), be careful when printing (Check out nbconvert to produce a pdf or even latex document)
 
+## Computing language
 
-## Online tools
+* We do *not* impose the language. Feel free to use any that you judge efficient for
+you.  Obviously we cannot provide full support, nor we cannot give full tutorials.
 
-[R online (old python)](https://cloud.sagemath.com)
+* If you use R, many examples of code will be included in the lecture notes. If
+  you use Python, all the exercises will be using python (when coding is
+  required).
 
-[Wakari (python)](https://wakari.io/)
+### Online tools
+
+In case you cannot/do not want to install libraries or softwares on your
+computer, some **free** online services exist, such as:
+
+[Sage Cloud](https://cloud.sagemath.com): python, R, and other languages
+
+[Wakari](https://wakari.io/) Python only.
+
 
 ### MCMC libraries
 
