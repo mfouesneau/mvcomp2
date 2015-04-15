@@ -27,6 +27,12 @@ the Course website is available
 
 The repository will be updated **after each class** to give the assignments. All datasets, gists of code will also be included.
 
+## Online tools
+
+[R online (old python)](https://cloud.sagemath.com)
+[Wakari (python)](https://wakari.io/)
+
+
 ## Lectures
 
 There will be 12 lectures on the following dates (the exercise session is on the
