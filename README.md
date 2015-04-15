@@ -27,6 +27,20 @@ the Course website is available
 
 The repository will be updated **after each class** to give the assignments. All datasets, gists of code will also be included.
 
+## Some homework guidelines
+
+**This notebook has no meaning of imposing a format** to give us back your homework. It only gives me a convenient way to keep both texts and codes at the same place.
+
+
+The assignment for next week is to finish the exploration of the main routines/functions of the language of your choice and to also give the solutions to the exercises: **both** plotting/exploration and exercises parts are expected for next week.
+
+
+* ** We do not mark your coding skills **, any language is possible, take the one that is convenient and efficient. 
+* This means **we do not read the codes**. We do not look out for comments in the codes, but **we will not guess** what a plot means. Be explicit and describe even in once sentence what you did.
+
+* Feel free to use the notebooks (it may not be the most efficient), be careful when printing (Check out nbconvert to produce a pdf or even latex document)
+
+
 ## Online tools
 
 [R online (old python)](https://cloud.sagemath.com)
@@ -35,7 +49,9 @@ The repository will be updated **after each class** to give the assignments. All
 
 ### MCMC libraries
 
-[emcee (python](http://dan.iel.fm/emcee/current/) 
+some libraries that you may find useful later depending on your language.
+
+[emcee (python)](http://dan.iel.fm/emcee/current/) 
 
 [STAN (C/C++)](http://mc-stan.org/)
 
