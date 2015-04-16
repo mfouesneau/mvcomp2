@@ -62,7 +62,8 @@ and codes at the same place.
 * If you use R, many examples of code will be included in the lecture notes. If
   you use Python, all the exercises will be using python (when coding is
   required). 
-  examples in R are available here: [link](http://www.mpia.de/homes/calj/compstat_ss2015/Rcodes.zip) (will be updated throughout the course)
+
+* examples in R from the course are available here: [link](http://www.mpia.de/homes/calj/compstat_ss2015/Rcodes.zip) (will be updated throughout the course)
 
 ### Online tools
 
