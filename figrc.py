@@ -2,14 +2,17 @@
 """
 Some personal tools for quick plots and more
 
-author: M. Fouesneau
+:author: M. Fouesneau
+:version: 2.0
+
+
+requirements:
+    * numpy
+    * scipy
+    * matplotlib
 """
 from __future__ import (absolute_import, division, print_function)
-import os
 import sys
-sys.path.append(os.getenv('HOME') + '/bin/python/libs')
-# just in case notebook was not launched with the option
-# %pylab inline
 
 import pylab as plt
 import numpy as np
@@ -22,6 +25,8 @@ from scipy.sparse import coo_matrix
 from scipy.signal import convolve2d, convolve, gaussian
 from copy import deepcopy
 import re
+import warnings
+from functools import wraps
 
 try:
     import faststats
@@ -49,23 +54,38 @@ else:
     basestring = (str, unicode)
 
 
+def deprecated_deco(msg='Deprecated'):
+    """ Deprecated decorator """
+    def deco(f):
+        @wraps(f)
+        def wrapped(*args, **kwargs):
+            warnings.warn(msg)
+            return f(*args, **kwargs)
+        return wrapped
+    return deco
+
+
 # ==============================================================================
 # ============= FIGURE SETUP FUNCTIONS =========================================
 # ==============================================================================
-def theme(ax=None, minorticks=False):
-    """ update plot to make it nice and uniform """
-    from matplotlib.ticker import AutoMinorLocator
-    from pylab import rcParams, gca, tick_params
-    if minorticks:
-        if ax is None:
-            ax = gca()
-        ax.yaxis.set_minor_locator(AutoMinorLocator())
-        ax.xaxis.set_minor_locator(AutoMinorLocator())
-    tick_params(which='both', width=rcParams['lines.linewidth'])
-
-
 def steppify(x, y):
-    """ Steppify a curve (x,y). Useful for manually filling histograms """
+    """
+    Steppify a curve (x,y). Useful for manually filling histograms
+
+    Parameters
+    ----------
+    x: sequence
+        x-coordinates
+    y: sequence
+        y-coordinates
+
+    Returns
+    -------
+    xx: sequence
+        stepified sequence
+    yy: sequence
+        stepified sequence
+    """
     dx = 0.5 * (x[1:] + x[:-1])
     xx = np.zeros( 2 * len(dx), dtype=float)
     yy = np.zeros( 2 * len(y), dtype=float)
@@ -76,15 +96,42 @@ def steppify(x, y):
 
 
 def colorify(data, vmin=None, vmax=None, cmap=plt.cm.Spectral):
-    """ Associate a color map to a quantity vector """
+    """
+    Associate a color map to a quantity vector
+
+    parameters
+    ----------
+    data: sequence
+        values from which indexing colors
+
+    vmin: float
+        minimum value to consider
+
+    vmax: float
+        maximum value to consider
+
+    cmap: pylab.cm.cmap instance
+        color map to index from
+
+    Returns
+    -------
+    colors: sequence
+        color values corresponding to each data value
+
+    scalarMap: plt.cm.ScalarMappable
+        updated colormap
+    """
     import matplotlib.colors as colors
 
     _vmin = vmin or min(data)
     _vmax = vmax or max(data)
-    cNorm = colors.normalize(vmin=_vmin, vmax=_vmax)
+    try:
+        cNorm = colors.Normalize(vmin=_vmin, vmax=_vmax)
+    except:  # old matplotlib
+        cNorm = colors.normalize(vmin=_vmin, vmax=_vmax)
 
     scalarMap = plt.cm.ScalarMappable(norm=cNorm, cmap=cmap)
-    colors = map(scalarMap.to_rgba, data)
+    colors = list(map(scalarMap.to_rgba, data))
     return colors, scalarMap
 
 
@@ -114,12 +161,10 @@ def devectorize_axes(ax=None, dpi=None, transparent=True):
     --------
     The code can be used in the following way::
 
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots()
+    >>> fig, ax = plt.subplots()
         x, y = np.random.random((2, 10000))
         ax.scatter(x, y)
         devectorize_axes(ax)
-        plt.savefig('devectorized.pdf')
 
     The resulting figure will be much smaller than the vectorized version.
     """
@@ -191,111 +236,54 @@ def devectorize_axes(ax=None, dpi=None, transparent=True):
     return ax
 
 
-def hist_with_err(x, xerr, bins=None, normed=False, step=False, *kwargs):
-    from scipy import integrate
-
-    # check inputs
-    assert( len(x) == len(xerr) ), 'data size mismatch'
-    _x = np.asarray(x).astype(float)
-    _xerr = np.asarray(xerr).astype(float)
-
-    # def the evaluation points
-    if (bins is None) | (not hasattr(bins, '__iter__')):
-        m = (_x - _xerr).min()
-        M = (_x + _xerr).max()
-        dx = M - m
-        m -= 0.2 * dx
-        M += 0.2 * dx
-        if bins is not None:
-            N = int(bins)
-        else:
-            N = 10
-        _xp = np.linspace(m, M, N)
-    else:
-        _xp = 0.5 * (bins[1:] + bins[:-1])
-
-    def normal(v, mu, sig):
-        norm_pdf = 1. / (np.sqrt(2. * np.pi) * sig ) * np.exp( - ( (v - mu ) / (2. * sig) ) ** 2 )
-        return norm_pdf / integrate.simps(norm_pdf, v)
-
-    _yp = np.array([normal(_xp, xk, xerrk) for xk, xerrk in zip(_x, _xerr) ]).sum(axis=0)
-
-    if normed:
-        _yp /= integrate.simps(_yp, _xp)
-
-    if step:
-        return steppify(_xp, _yp)
-    else:
-        return _xp, _yp
-
-
-def hist_with_err_bootstrap(x, xerr, bins=None, normed=False, nsample=50, step=False, **kwargs):
-    x0, y0 = hist_with_err(x, xerr, bins=bins, normed=normed, step=step, **kwargs)
-
-    yn = np.empty( (nsample, len(y0)), dtype=float)
-    yn[0, :] = y0
-    for k in range(nsample - 1):
-        idx = np.random.randint(0, len(x), len(x))
-        yn[k, :] = hist_with_err(x[idx], xerr[idx], bins=bins, normed=normed, step=step, **kwargs)[1]
-
-    return x0, yn
-
-
-def __get_hesse_bins__(_x, _xerr=0., bins=None, margin=0.2):
-    if (bins is None) | (not hasattr(bins, '__iter__')):
-        m = (_x - _xerr).min()
-        M = (_x + _xerr).max()
-        dx = M - m
-        m -= margin * dx
-        M += margin * dx
-        if bins is not None:
-            N = int(bins)
-        else:
-            N = 10
-        _xp = np.linspace(m, M, N)
-    else:
-        _xp = 0.5 * (bins[1:] + bins[:-1])
-    return _xp
-
-
-def scatter_contour(x, y,
-                    levels=10,
-                    bins=40,
-                    threshold=50,
-                    log_counts=False,
-                    histogram2d_args={},
-                    plot_args={},
-                    contour_args={},
-                    ax=None):
+def scatter_contour(x, y, levels=10, bins=20, range=None, threshold=50,
+                    log_counts=False, histogram2d_args={},
+                    contour_args={}, ax=None, **args):
     """Scatter plot with contour over dense regions
 
     Parameters
     ----------
     x, y : arrays
         x and y data for the contour plot
+
     levels : integer or array (optional, default=10)
         number of contour levels, or array of contour levels
+
+    bins:  int or [int, int] or array_like or [array, array], optional
+        binning in the histogramming (see :func:`histogram2d`)
+
     threshold : float (default=100)
         number of points per 2D bin at which to begin drawing contours
+
     log_counts :boolean (optional)
         if True, contour levels are the base-10 logarithm of bin counts.
+
     histogram2d_args : dict
         keyword arguments passed to numpy.histogram2d
         see doc string of numpy.histogram2d for more information
-    plot_args : dict
-        keyword arguments passed to pylab.scatter
-        see doc string of pylab.scatter for more information
+
     contourf_args : dict
         keyword arguments passed to pylab.contourf
         see doc string of pylab.contourf for more information
+
     ax : pylab.Axes instance
         the axes on which to plot.  If not specified, the current
         axes will be used
+
+    other arguments are passed to :function:`plot`
+
+    Example
+    -------
+    >>> x = np.random.normal(0, 1, 1e4)
+        y = np.random.normal(0, 1, 1e4)
+        scatter_contour(x, y, bins=20, ls='None', marker='.')
     """
     if ax is None:
         ax = plt.gca()
 
-    H, xbins, ybins = np.histogram2d(x, y, **histogram2d_args)
+    kwargs_hist = dict(range=range, bins=bins)
+    kwargs_hist.update(**histogram2d_args)
+    H, xbins, ybins = np.histogram2d(x, y, **kwargs_hist)
 
     if log_counts:
         H = np.log10(1 + H)
@@ -333,344 +321,36 @@ def scatter_contour(x, y,
 
         Xplot = X[~points_inside]
 
-        ax.plot(Xplot[:, 0], Xplot[:, 1], zorder=1, **plot_args)
+        ax.plot(Xplot[:, 0], Xplot[:, 1], zorder=1, **args)
     except IndexError:
-        ax.plot(x, y, zorder=1, **plot_args)
+        ax.plot(x, y, zorder=1, **args)
 
 
 def latex_float(f, precision=0.2, delimiter=r'\times'):
+    """ Generate a proper latex power of 10 from a float
+
+    Parameters
+    ----------
+    f: float
+        value to transform
+
+    precision: float
+        precision to convert the float
+
+    delimiter: str
+        delimiter string between the mantisse and exponent
+
+    Returns
+    -------
+    txt: str
+        string value
+    """
     float_str = ("{0:" + str(precision) + "g}").format(f)
     if "e" in float_str:
         base, exponent = float_str.split("e")
         return (r"{0}" + delimiter + "10^{{{1}}}").format(base, int(exponent))
     else:
         return float_str
-
-
-# ==============================================================================
-# ==============================================================================
-# ==============================================================================
-
-def ezrc(fontSize=22., lineWidth=2., labelSize=None, tickmajorsize=10,
-         tickminorsize=5, figsize=(8, 6)):
-    """
-    slides - Define params to make pretty fig for slides
-    """
-    from pylab import rc, rcParams
-    if labelSize is None:
-        labelSize = fontSize + 5
-    rc('figure', figsize=figsize)
-    rc('lines', linewidth=lineWidth)
-    rcParams['grid.linewidth'] = lineWidth
-    rcParams['font.sans-serif'] = ['Helvetica']
-    rcParams['font.serif'] = ['Helvetica']
-    rcParams['font.family'] = ['Times New Roman']
-    rc('font', size=fontSize, family='serif', weight='bold')
-    rc('axes', linewidth=lineWidth, labelsize=labelSize)
-    rc('legend', borderpad=0.1, markerscale=1., fancybox=False)
-    rc('text', usetex=True)
-    rc('image', aspect='auto')
-    rc('ps', useafm=True, fonttype=3)
-    rcParams['xtick.major.size'] = tickmajorsize
-    rcParams['xtick.minor.size'] = tickminorsize
-    rcParams['ytick.major.size'] = tickmajorsize
-    rcParams['ytick.minor.size'] = tickminorsize
-    rcParams['text.latex.preamble'] = ["\\usepackage{amsmath}"]
-
-
-def hide_axis(where, ax=None):
-    ax = ax or plt.gca()
-    if type(where) == str:
-        _w = [where]
-    else:
-        _w = where
-    [sk.set_color('None') for k, sk in ax.spines.items() if k in _w ]
-
-    if 'top' in _w and 'bottom' in _w:
-        ax.xaxis.set_ticks_position('none')
-    elif 'top' in _w:
-        ax.xaxis.set_ticks_position('bottom')
-    elif 'bottom' in _w:
-        ax.xaxis.set_ticks_position('top')
-
-    if 'left' in _w and 'right' in _w:
-        ax.yaxis.set_ticks_position('none')
-    elif 'left' in _w:
-        ax.yaxis.set_ticks_position('right')
-    elif 'right' in _w:
-        ax.yaxis.set_ticks_position('left')
-
-    plt.draw_if_interactive()
-
-
-def despine(fig=None, ax=None, top=True, right=True,
-            left=False, bottom=False):
-    """Remove the top and right spines from plot(s).
-
-    fig : matplotlib figure
-        figure to despine all axes of, default uses current figure
-    ax : matplotlib axes
-        specific axes object to despine
-    top, right, left, bottom : boolean
-        if True, remove that spine
-
-    """
-    if fig is None and ax is None:
-        axes = plt.gcf().axes
-    elif fig is not None:
-        axes = fig.axes
-    elif ax is not None:
-        axes = [ax]
-
-    for ax_i in axes:
-        for side in ["top", "right", "left", "bottom"]:
-            ax_i.spines[side].set_visible(not locals()[side])
-
-
-def shift_axis(which, delta, where='outward', ax=None):
-    ax = ax or plt.gca()
-    if type(which) == str:
-        _w = [which]
-    else:
-        _w = which
-
-    scales = (ax.xaxis.get_scale(), ax.yaxis.get_scale())
-    lbls = (ax.xaxis.get_label(), ax.yaxis.get_label())
-
-    for wk in _w:
-        ax.spines[wk].set_position((where, delta))
-
-    ax.xaxis.set_scale(scales[0])
-    ax.yaxis.set_scale(scales[1])
-    ax.xaxis.set_label(lbls[0])
-    ax.yaxis.set_label(lbls[1])
-    plt.draw_if_interactive()
-
-
-class AutoLocator(MaxNLocator):
-    def __init__(self, nbins=9, steps=[1, 2, 5, 10], **kwargs):
-        MaxNLocator.__init__(self, nbins=nbins, steps=steps, **kwargs )
-
-
-def setMargins(left=None, bottom=None, right=None, top=None, wspace=None, hspace=None):
-        """
-        Tune the subplot layout via the meanings (and suggested defaults) are::
-
-            left  = 0.125  # the left side of the subplots of the figure
-            right = 0.9    # the right side of the subplots of the figure
-            bottom = 0.1   # the bottom of the subplots of the figure
-            top = 0.9      # the top of the subplots of the figure
-            wspace = 0.2   # the amount of width reserved for blank space between subplots
-            hspace = 0.2   # the amount of height reserved for white space between subplots
-
-        The actual defaults are controlled by the rc file
-
-        """
-        plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
-        plt.draw_if_interactive()
-
-
-def setNmajors(xval=None, yval=None, ax=None, mode='auto', **kwargs):
-        """
-        setNmajors - set major tick number
-        see figure.MaxNLocator for kwargs
-        """
-        if ax is None:
-                ax = plt.gca()
-        if (mode == 'fixed'):
-                if xval is not None:
-                        ax.xaxis.set_major_locator(MaxNLocator(xval, **kwargs))
-                if yval is not None:
-                        ax.yaxis.set_major_locator(MaxNLocator(yval, **kwargs))
-        elif (mode == 'auto'):
-                if xval is not None:
-                        ax.xaxis.set_major_locator(AutoLocator(xval, **kwargs))
-                if yval is not None:
-                        ax.yaxis.set_major_locator(AutoLocator(yval, **kwargs))
-
-        plt.draw_if_interactive()
-
-
-def crazy_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None, reinterp=None):
-    """
-    Compute the sparse bi-dimensional histogram of two data samples where *x*,
-    and *y* are 1-D sequences of the same length. If *weights* is None
-    (default), this is a histogram of the number of occurences of the
-    observations at (x[i], y[i]).
-
-    If *weights* is specified, it specifies values at the coordinate (x[i],
-    y[i]). These values are accumulated for each bin and then reduced according
-    to *reduce_w* function, which defaults to numpy's sum function (np.sum).
-    (If *weights* is specified, it must also be a 1-D sequence of the same
-    length as *x* and *y*.)
-
-    INPUTS:
-        x       ndarray[ndim=1]         first data sample coordinates
-        y       ndarray[ndim=1]         second data sample coordinates
-
-    KEYWORDS:
-        bins                            the bin specification
-                   int                     the number of bins for the two dimensions (nx=ny=bins)
-                or [int, int]              the number of bins in each dimension (nx, ny = bins)
-        weights     ndarray[ndim=1]     values *w_i* weighing each sample *(x_i, y_i)*
-                                        accumulated and reduced (using reduced_w) per bin
-        reduce_w    callable            function that will reduce the *weights* values accumulated per bin
-                                        defaults to numpy's sum function (np.sum)
-        NULL        value type          filling missing data value
-        reinterp    str                 values are [None, 'nn', linear']
-                                        if set, reinterpolation is made using mlab.griddata to fill missing data
-                                        within the convex polygone that encloses the data
-
-    OUTPUTS:
-        B           ndarray[ndim=2]     bi-dimensional histogram
-        extent      tuple(4)            (xmin, xmax, ymin, ymax) entension of the histogram
-        steps       tuple(2)            (dx, dy) bin size in x and y direction
-
-    """
-    # define the bins (do anything you want here but needs edges and sizes of the 2d bins)
-    try:
-        nx, ny = bins
-    except TypeError:
-        nx = ny = bins
-
-    # values you want to be reported
-    if weights is None:
-        weights = np.ones(x.size)
-
-    if reduce_w is None:
-        reduce_w = np.sum
-    else:
-        if not hasattr(reduce_w, '__call__'):
-            raise TypeError('reduce function is not callable')
-
-    # culling nans
-    finite_inds = (np.isfinite(x) & np.isfinite(y) & np.isfinite(weights))
-    _x = np.asarray(x)[finite_inds]
-    _y = np.asarray(y)[finite_inds]
-    _w = np.asarray(weights)[finite_inds]
-
-    if not (len(_x) == len(_y)) & (len(_y) == len(_w)):
-        raise ValueError('Shape mismatch between x, y, and weights: {}, {}, {}'.format(_x.shape, _y.shape, _w.shape))
-
-    xmin, xmax = _x.min(), _x.max()
-    ymin, ymax = _y.min(), _y.max()
-    dx = (xmax - xmin) / (nx - 1.0)
-    dy = (ymax - ymin) / (ny - 1.0)
-
-    # Basically, this is just doing what np.digitize does with one less copy
-    xyi = np.vstack((_x, _y)).T
-    xyi -= [xmin, ymin]
-    xyi /= [dx, dy]
-    xyi = np.floor(xyi, xyi).T
-
-    # xyi contains the bins of each point as a 2d array [(xi,yi)]
-
-    d = {}
-    for e, k in enumerate(xyi.T):
-        key = (k[0], k[1])
-
-        if key in d:
-            d[key].append(_w[e])
-        else:
-            d[key] = [_w[e]]
-
-    _xyi = np.array(d.keys()).T
-    _w   = np.array([ reduce_w(v) for v in d.values() ])
-
-    # exploit a sparse coo_matrix to build the 2D histogram...
-    _grid = sparse.coo_matrix((_w, _xyi), shape=(nx, ny))
-
-    if reinterp is None:
-        # convert sparse to array with filled value
-        #  grid.toarray() does not account for filled value
-        #  sparse.coo.coo_todense() does actually add the values to the existing ones, i.e. not what we want -> brute force
-        if NULL is None:
-            B = _grid.toarray()
-        else:  # Brute force only went needed
-            B = np.zeros(_grid.shape, dtype=_grid.dtype)
-            B.fill(NULL)
-            for (x, y, v) in zip(_grid.col, _grid.row, _grid.data):
-                B[y, x] = v
-    else:  # reinterp
-        xi = np.arange(nx, dtype=float)
-        yi = np.arange(ny, dtype=float)
-        B = griddata(_grid.col.astype(float), _grid.row.astype(float), _grid.data, xi, yi, interp=reinterp)
-
-    return B, (xmin, xmax, ymin, ymax), (dx, dy)
-
-
-def histplot(data, bins=10, range=None, normed=False, weights=None, density=None, ax=None, **kwargs):
-    """ plot an histogram of data `a la R`: only bottom and left axis, with
-    dots at the bottom to represent the sample
-
-    Example
-    -------
-        import numpy as np
-        x = np.random.normal(0, 1, 1e3)
-        histplot(x, bins=50, density=True, ls='steps-mid')
-    """
-    h, b = np.histogram(data, bins, range, normed, weights, density)
-    if ax is None:
-        ax = plt.gca()
-    x = 0.5 * (b[:-1] + b[1:])
-    l = ax.plot(x, h, **kwargs)
-
-    ax.xaxis.set_ticks_position('bottom')
-    ax.yaxis.set_ticks_position('left')
-
-    _w = ['top', 'right']
-    [ ax.spines[side].set_visible(False) for side in _w ]
-
-    for wk in ['bottom', 'left']:
-        ax.spines[wk].set_position(('outward', 10))
-
-    ylim = ax.get_ylim()
-    ax.plot(data, -0.02 * max(ylim) * np.ones(len(data)), '|', color=l[0].get_color())
-    ax.set_ylim(-0.02 * max(ylim), max(ylim))
-
-
-def scatter_plot(x, y, ellipse=False, levels=[0.99, 0.95, 0.68], color='w', ax=None, **kwargs):
-    if ax is None:
-        ax = plt.gca()
-
-    if faststats is not None:
-        im, e = faststats.fastkde.fastkde(x, y, (50, 50), adjust=2.)
-        V = im.max() * np.asarray(levels)
-
-        plt.contour(im.T, levels=V, origin='lower', extent=e, linewidths=[1, 2, 3], colors=color)
-
-    ax.plot(x, y, 'b,', alpha=0.3, zorder=-1, rasterized=True)
-
-    if ellipse is True:
-        data = np.vstack([x, y])
-        mu = np.mean(data, axis=1)
-        cov = np.cov(data)
-        error_ellipse(mu, cov, ax=plt.gca(), edgecolor="g", ls="dashed", lw=4, zorder=2)
-
-
-def error_ellipse(mu, cov, ax=None, factor=1.0, **kwargs):
-    """
-    Plot the error ellipse at a point given its covariance matrix.
-
-    """
-    # some sane defaults
-    facecolor = kwargs.pop('facecolor', 'none')
-    edgecolor = kwargs.pop('edgecolor', 'k')
-
-    x, y = mu
-    U, S, V = np.linalg.svd(cov)
-    theta = np.degrees(np.arctan2(U[1, 0], U[0, 0]))
-    ellipsePlot = Ellipse(xy=[x, y],
-                          width=2 * np.sqrt(S[0]) * factor,
-                          height=2 * np.sqrt(S[1]) * factor,
-                          angle=theta,
-                          facecolor=facecolor, edgecolor=edgecolor, **kwargs)
-
-    if ax is None:
-        ax = plt.gca()
-    ax.add_patch(ellipsePlot)
-
-    return ellipsePlot
 
 
 def bayesian_blocks(t):
@@ -691,9 +371,9 @@ def bayesian_blocks(t):
 
     Notes
     -----
-    This is an incomplete implementation: it may fail for some
-    datasets.  Alternate fitness functions and prior forms can
-    be found in the paper listed above.
+    This is an incomplete implementation: it may fail for some datasets.
+    Alternate fitness functions and prior forms can be found in the paper listed
+    above.
     """
     # copy and sort the array
     t = np.sort(t)
@@ -756,11 +436,16 @@ def quantiles(x, qlist=[2.5, 25, 50, 75, 97.5]):
     The quantile with a fraction 50 is called the median
     (50% of the distribution)
 
-    Inputs:
-        x     - variable to evaluate from
-        qlist - quantiles fraction to estimate (in %)
+    Parameters
+    ----------
+    x: sequence
+        variable to evaluate from
 
-    Outputs:
+    qlist: sequence
+        quantiles fraction to estimate (in %)
+
+    Returns
+    -------
         Returns a dictionary of requested quantiles from array
     """
     # Make a copy of trace
@@ -785,22 +470,28 @@ def quantiles(x, qlist=[2.5, 25, 50, 75, 97.5]):
 
 
 def get_optbins(data, method='freedman', ret='N'):
-    """ Determine the optimal binning of the data based on common estimators
-    and returns either the number of bins of the width to use.
+    """
+    Determine the optimal binning of the data based on common estimators and
+    returns either the number of bins of the width to use.
 
-    input:
-        data    1d dataset to estimate from
-    keywords:
-        method  the method to use: str in {sturge, scott, freedman}
-        ret set to N will return the number of bins / edges
-            set to W will return the width
-    refs:
-        Sturges, H. A. (1926)."The choice of a class interval". J. American Statistical Association, 65-66
-        Scott, David W. (1979), "On optimal and data-based histograms". Biometrika, 66, 605-610
-        Freedman, D.; Diaconis, P. (1981). "On the histogram as a density estimator: L2 theory".
-                Zeitschrift fur Wahrscheinlichkeitstheorie und verwandte Gebiete, 57, 453-476
-        Scargle, J.D. et al (2012) "Studies in Astronomical Time Series Analysis. VI. Bayesian
-        Block Representations."
+    Parameters
+    ----------
+    data: array
+        1d dataset to estimate from
+
+    method: str
+        the method to use: str in {sturge, scott, freedman}
+
+    ret: str
+        set to N will return the number of bins / edges
+        set to W will return the width
+
+    .. references::
+
+        * Sturges, H. A. (1926)."The choice of a class interval". J. American Statistical Association, 65-66
+        * Scott, David W. (1979), "On optimal and data-based histograms". Biometrika, 66, 605-610
+        * Freedman, D.; Diaconis, P. (1981). "On the histogram as a density estimator: L2 theory".  Zeitschrift fur Wahrscheinlichkeitstheorie und verwandte Gebiete, 57, 453-476
+        * Scargle, J.D. et al (2012) "Studies in Astronomical Time Series Analysis. VI. Bayesian Block Representations."
     """
     x = np.asarray(data)
     n = x.size
@@ -841,61 +532,149 @@ def get_optbins(data, method='freedman', ret='N'):
         return None
 
 
-def plotMAP(x, ax=None, error=0.01, frac=[0.65,0.95, 0.975], usehpd=True,
-            hist={'histtype':'step'}, vlines={}, fill={},
-            optbins={'method':'freedman'}, *args, **kwargs):
-    """ Plot the MAP of a given sample and add statistical info
-    If not specified, binning is assumed from the error value or using
-    mystats.optbins if available.
-    if mystats module is not available, hpd keyword has no effect
+def fast_histogram2d(x, y, bins=10, weights=None, reduce_w=None, NULL=None,
+                     reinterp=None):
+    """
+    Compute the sparse bi-dimensional histogram of two data samples where *x*,
+    and *y* are 1-D sequences of the same length. If *weights* is None
+    (default), this is a histogram of the number of occurences of the
+    observations at (x[i], y[i]).
 
-    inputs:
-        x   dataset
-    keywords
-        ax  axe object to use during plotting
-        error   error to consider on the estimations
-        frac    fractions of sample to highlight (def 65%, 95%, 97.5%)
-        hpd if set, uses mystats.hpd to estimate the confidence intervals
+    If *weights* is specified, it specifies values at the coordinate (x[i],
+    y[i]). These values are accumulated for each bin and then reduced according
+    to *reduce_w* function, which defaults to numpy's sum function (np.sum).
+    (If *weights* is specified, it must also be a 1-D sequence of the same
+    length as *x* and *y*.)
 
-        hist    keywords forwarded to hist command
-        optbins keywords forwarded to mystats.optbins command
-        vlines  keywords forwarded to vlines command
-        fill    keywords forwarded to fill command
-        """
-    _x = np.ravel(x)
-    if ax is None:
-        ax = plt.gca()
-    if not ('bins' in hist):
-        bins = get_optbins(x, method=optbins['method'], ret='N')
-        n, b, p = ax.hist(_x, bins=bins, *args, **hist)
+    Parameters
+    ----------
+    x: ndarray[ndim=1]
+        first data sample coordinates
+
+    y: ndarray[ndim=1]
+        second data sample coordinates
+
+    bins: int or [int, int]
+        the bin specification the number of bins for the two dimensions
+        (nx=ny=bins) or the number of bins in each dimension (nx, ny = bins)
+
+    weights: ndarray[ndim=1]
+        values *w_i* weighing each sample *(x_i, y_i)* accumulated and reduced
+        (using reduced_w) per bin
+
+    reduce_w: callable
+        function that will reduce the *weights* values accumulated per bin
+        defaults to numpy's sum function (np.sum)
+
+    NULL: value type
+        filling missing data value
+
+    reinterp: str
+        values are [None, 'nn', linear']
+        if set, reinterpolation is made using mlab.griddata to fill missing data
+        within the convex polygone that encloses the data
+
+    Returns
+    -------
+    B: ndarray[ndim=2]
+        bi-dimensional histogram
+
+    extent: tuple(4)
+        (xmin, xmax, ymin, ymax) entension of the histogram
+
+    steps: tuple(2)
+        (dx, dy) bin size in x and y direction
+    """
+    # define the bins (do anything you want here but needs edges and sizes of
+    # the 2d bins)
+    try:
+        nx, ny = bins
+    except TypeError:
+        nx = ny = bins
+
+    # values you want to be reported
+    if weights is None:
+        weights = np.ones(x.size)
+
+    if reduce_w is None:
+        reduce_w = np.sum
     else:
-        n, b, p = ax.hist(_x, *args, **hist)
-    c = 0.5 * (b[:-1] + b[1:])
-    # dc = 0.5 * (b[:-1] - b[1:])
-    ind = n.argmax()
-    _ylim = ax.get_ylim()
-    if usehpd is True:
-        _hpd = hpd(_x, 1 - 0.01)
-        ax.vlines(_hpd, _ylim[0], _ylim[1], **vlines)
-        for k in frac:
-            nx = hpd(_x, 1. - k)
-            ax.fill_between(nx, _ylim[0], _ylim[1], alpha=0.4 / float(len(frac)), zorder=-1, **fill)
-    else:
-        ax.vlines(c[ind], _ylim[0], _ylim[1], **vlines)
-        cx = c[ n.argsort() ][::-1]
-        cn = n[ n.argsort() ][::-1].cumsum()
-        for k in frac:
-            sx = cx[np.where(cn <= cn[-1] * float(k))]
-            sx = [sx.min(), sx.max()]
-            ax.fill_between(sx, _ylim[0], _ylim[1], alpha=0.4 / float(len(frac)), zorder=-1, **fill)
-    theme(ax=ax)
-    ax.set_xlabel(r'Values')
-    ax.set_ylabel(r'Counts')
+        if not hasattr(reduce_w, '__call__'):
+            raise TypeError('reduce function is not callable')
+
+    # culling nans
+    finite_inds = (np.isfinite(x) & np.isfinite(y) & np.isfinite(weights))
+    _x = np.asarray(x)[finite_inds]
+    _y = np.asarray(y)[finite_inds]
+    _w = np.asarray(weights)[finite_inds]
+
+    if not (len(_x) == len(_y)) & (len(_y) == len(_w)):
+        raise ValueError('Shape mismatch between x, y, and weights: {}, {}, {}'.format(_x.shape, _y.shape, _w.shape))
+
+    xmin, xmax = _x.min(), _x.max()
+    ymin, ymax = _y.min(), _y.max()
+    dx = (xmax - xmin) / (nx - 1.0)
+    dy = (ymax - ymin) / (ny - 1.0)
+
+    # Basically, this is just doing what np.digitize does with one less copy
+    xyi = np.vstack((_x, _y)).T
+    xyi -= [xmin, ymin]
+    xyi /= [dx, dy]
+    xyi = np.floor(xyi, xyi).T
+
+    # xyi contains the bins of each point as a 2d array [(xi,yi)]
+
+    d = {}
+    for e, k in enumerate(xyi.T):
+        key = (k[0], k[1])
+
+        if key in d:
+            d[key].append(_w[e])
+        else:
+            d[key] = [_w[e]]
+
+    _xyi = np.array(d.keys()).T
+    _w   = np.array([ reduce_w(v) for v in d.values() ])
+
+    # exploit a sparse coo_matrix to build the 2D histogram...
+    _grid = sparse.coo_matrix((_w, _xyi), shape=(nx, ny))
+
+    if reinterp is None:
+        # convert sparse to array with filled value
+        #  grid.toarray() does not account for filled value
+        #  sparse.coo.coo_todense() does actually add the values to the existing
+        #  ones, i.e. not what we want -> brute force
+        if NULL is None:
+            B = _grid.toarray()
+        else:  # Brute force only went needed
+            B = np.zeros(_grid.shape, dtype=_grid.dtype)
+            B.fill(NULL)
+            for (x, y, v) in zip(_grid.col, _grid.row, _grid.data):
+                B[y, x] = v
+    else:  # reinterp
+        xi = np.arange(nx, dtype=float)
+        yi = np.arange(ny, dtype=float)
+        B = griddata(_grid.col.astype(float), _grid.row.astype(float), _grid.data, xi, yi, interp=reinterp)
+
+    return B, (xmin, xmax, ymin, ymax), (dx, dy)
 
 
 def calc_min_interval(x, alpha):
-    """Internal method to determine the minimum interval of
-    a given width"""
+    """
+    Internal method to determine the minimum interval of a given width
+
+    Parameters
+    ----------
+    x: sequence
+        values
+    alpha: sequence
+        CI probability
+
+    Returns
+    -------
+    min_int: sequence
+        interval
+    """
 
     # Initialize interval
     min_int = [None, None]
@@ -940,15 +719,20 @@ def getPercentileLevels(h, frac=[0.5, 0.65, 0.95, 0.975]):
     Return image levels that corresponds to given percentiles values
     Uses the cumulative distribution of the sorted image density values
     Hence this works also for any nd-arrays
-    inputs:
-        h   array
-    outputs:
-        res array containing level values
-    keywords:
-        frac    sample fractions (percentiles)
-            could be scalar or iterable
-            default: 50%, 65%, 95%, and 97.5%
 
+    Parameters
+    ----------
+    h:   array
+        values
+
+    frac: sequence
+        sample fractions (percentiles) could be scalar or iterable
+        default: 50%, 65%, 95%, and 97.5%
+
+    returns
+    -------
+    outputs: array
+        res array containing level values
     """
     if getattr(frac, '__iter__', False):
         return np.asarray( [getPercentileLevels(h, fk) for fk in frac])
@@ -1133,6 +917,162 @@ def fastkde(x, y, gridsize=(200, 200), extents=None, nocorrelation=False,
     return grid, (xmin, xmax, ymin, ymax), dx, dy
 
 
+def fastkde1D(xin, gridsize=200, extents=None, weights=None, adjust=1.):
+    """
+    A fft-based Gaussian kernel density estimate (KDE)
+    for computing the KDE on a regular grid
+
+    Note that this is a different use case than scipy's original
+    scipy.stats.kde.gaussian_kde
+
+    IMPLEMENTATION
+    --------------
+
+    Performs a gaussian kernel density estimate over a regular grid using a
+    convolution of the gaussian kernel with a 2D histogram of the data.
+
+    It computes the sparse bi-dimensional histogram of two data samples where
+    *x*, and *y* are 1-D sequences of the same length. If *weights* is None
+    (default), this is a histogram of the number of occurences of the
+    observations at (x[i], y[i]).
+    histogram of the data is a faster implementation than numpy.histogram as it
+    avoids intermediate copies and excessive memory usage!
+
+
+    This function is typically *several orders of magnitude faster* than
+    scipy.stats.kde.gaussian_kde.  For large (>1e7) numbers of points, it
+    produces an essentially identical result.
+
+    **Example usage and timing**
+
+        from scipy.stats import gaussian_kde
+
+        def npkde(x, xe):
+            kde = gaussian_kde(x)
+            r = kde.evaluate(xe)
+            return r
+        x = np.random.normal(0, 1, 1e6)
+
+        %timeit fastkde1D(x)
+        10 loops, best of 3: 31.9 ms per loop
+
+        %timeit npkde(x, xe)
+        1 loops, best of 3: 11.8 s per loop
+
+        ~ 1e4 speed up!!! However gaussian_kde is not optimized for this application
+
+    Boundary conditions on the data is corrected by using a symmetric /
+    reflection condition. Hence the limits of the dataset does not affect the
+    pdf estimate.
+
+    Parameters
+    ----------
+    xin:  ndarray[ndim=1]
+        The x-coords, y-coords of the input data points respectively
+
+    gridsize: int
+        A nx integer of the size of the output grid (default: 200x200)
+
+    extents: (xmin, xmax) tuple
+        tuple of the extents of output grid (default: extent of input data)
+
+    weights: ndarray[ndim=1]
+        An array of the same shape as x that weights each sample x_i
+        by w_i.  Defaults to an array of ones the same size as x (default: None)
+
+    adjust : float
+        An adjustment factor for the bw. Bandwidth becomes bw * adjust.
+
+    Returns
+    -------
+    g: ndarray[ndim=2]
+        A gridded 2D kernel density estimate of the input points.
+
+    e: (xmin, xmax, ymin, ymax) tuple
+        Extents of g
+    """
+    # Variable check
+    x = np.squeeze(np.asarray(xin))
+
+    # Default extents are the extent of the data
+    if extents is None:
+        xmin, xmax = x.min(), x.max()
+    else:
+        xmin, xmax = map(float, extents)
+        x = x[ (x <= xmax) & (x >= xmin) ]
+
+    n = x.size
+
+    if weights is None:
+        # Default: Weight all points equally
+        weights = np.ones(n)
+    else:
+        weights = np.squeeze(np.asarray(weights))
+        if weights.size != x.size:
+            raise ValueError('Input weights must be an array of the same size as input x & y arrays!')
+
+    # Optimize gridsize ------------------------------------------------------
+    # Make grid and discretize the data and round it to the next power of 2
+    # to optimize with the fft usage
+    if gridsize is None:
+        gridsize = np.max((len(x), 512.))
+    gridsize = 2 ** np.ceil(np.log2(gridsize))  # round to next power of 2
+
+    nx = gridsize
+
+    # Make the sparse 2d-histogram -------------------------------------------
+    dx = (xmax - xmin) / (nx - 1)
+
+    # Basically, this is just doing what np.digitize does with one less copy
+    # xyi contains the bins of each point as a 2d array [(xi,yi)]
+    xyi = x - xmin
+    xyi /= dx
+    xyi = np.floor(xyi, xyi)
+    xyi = np.vstack((xyi, np.zeros(n, dtype=int)))
+
+    # Next, make a 2D histogram of x & y.
+    # Exploit a sparse coo_matrix avoiding np.histogram2d due to excessive
+    # memory usage with many points
+    grid = coo_matrix((weights, xyi), shape=(nx, 1)).toarray()
+
+    # Kernel Preliminary Calculations ---------------------------------------
+    std_x = np.std(xyi[0])
+
+    # Scaling factor for bandwidth
+    scotts_factor = n ** (-1. / 5.) * adjust  # For n ** (-1. / (d + 4))
+
+    # Silvermann n * (d + 2) / 4.)**(-1. / (d + 4)).
+
+    # Make the gaussian kernel ---------------------------------------------
+
+    # First, determine the bandwidth using Scott's rule
+    # (note that Silvermann's rule gives the # same value for 2d datasets)
+    kern_nx = np.round(scotts_factor * 2 * np.pi * std_x)
+
+    # Then evaluate the gaussian function on the kernel grid
+    kernel = np.reshape(gaussian(kern_nx, scotts_factor * std_x), (kern_nx, 1))
+
+    # ---- Produce the kernel density estimate --------------------------------
+
+    # Convolve the histogram with the gaussian kernel
+    # use symmetric padding to correct for data boundaries in the kde
+    npad = np.min((nx, 2 * kern_nx))
+    grid = np.vstack( [grid[npad: 0: -1], grid, grid[nx: nx - npad: -1]] )
+    grid = convolve(grid, kernel, mode='same')[npad: npad + nx]
+
+    # Normalization factor to divide result by so that units are in the same
+    # units as scipy.stats.kde.gaussian_kde's output.
+    norm_factor = 2 * np.pi * std_x * std_x * scotts_factor ** 2
+    norm_factor = n * dx * np.sqrt(norm_factor)
+
+    # Normalize the result
+    grid /= norm_factor
+
+    return np.squeeze(grid), (xmin, xmax), dx
+
+
+
+
 def percentile(data, percentiles, weights=None):
     """Compute weighted percentiles.
 
@@ -1240,7 +1180,392 @@ def percentile(data, percentiles, weights=None):
     return o
 
 
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+
+@deprecated_deco('Deprecated, use Theme_Ezrc instead')
+def ezrc(fontSize=22., lineWidth=2., labelSize=None, tickmajorsize=10,
+         tickminorsize=5, figsize=(8, 6)):
+    """
+    Define rcparams to make pretty fig for slides and papers
+
+    fonts are set to properly display as in latex/paper format
+    legends are set to avoid the box by default.
+
+    Parameters
+    ----------
+
+    fontSize: float
+        size of the 'normal' font
+
+    lineWidth: int
+        default linewidth (include axes)
+
+    labelSize: float
+        size for axis labels
+
+    tickmajorsize: int
+        size of the major ticks
+
+    tickminorsize: int
+        size of the minor ticks
+
+    figsize: tuple
+        figure size
+    """
+    from pylab import rc, rcParams
+    if labelSize is None:
+        labelSize = fontSize + 5
+    rc('figure', figsize=figsize)
+    rc('lines', linewidth=lineWidth)
+    rcParams['grid.linewidth'] = lineWidth
+    rcParams['font.sans-serif'] = ['Helvetica']
+    rcParams['font.serif'] = ['Helvetica']
+    rcParams['font.family'] = ['Times New Roman']
+    rc('font', size=fontSize, family='serif', weight='bold')
+    rc('axes', linewidth=lineWidth, labelsize=labelSize)
+    rc('legend', borderpad=0.1, markerscale=1., fancybox=False)
+    rc('text', usetex=True)
+    rc('image', aspect='auto')
+    rc('ps', useafm=True, fonttype=3)
+    rcParams['xtick.major.size'] = tickmajorsize
+    rcParams['xtick.minor.size'] = tickminorsize
+    rcParams['ytick.major.size'] = tickmajorsize
+    rcParams['ytick.minor.size'] = tickminorsize
+    rcParams['text.latex.preamble'] = ["\\usepackage{amsmath}"]
+
+
+def hide_axis(where, ax=None):
+    """ Remove axis from a plot
+
+    It also takes care to update the label position is necessary.
+
+    Parameters
+    ----------
+    where: str or sequence
+        where is expected to be 'top, bottom, left, right', to remove the
+        corresponding axis.
+
+    ax: Axes
+        axes instance of the plot to work on
+    """
+    ax = ax or plt.gca()
+    if type(where) == str:
+        _w = [where]
+    else:
+        _w = where
+    [sk.set_color('None') for k, sk in ax.spines.items() if k in _w ]
+
+    if 'top' in _w and 'bottom' in _w:
+        ax.xaxis.set_ticks_position('none')
+    elif 'top' in _w:
+        ax.xaxis.set_ticks_position('bottom')
+    elif 'bottom' in _w:
+        ax.xaxis.set_ticks_position('top')
+
+    if 'left' in _w and 'right' in _w:
+        ax.yaxis.set_ticks_position('none')
+    elif 'left' in _w:
+        ax.yaxis.set_ticks_position('right')
+    elif 'right' in _w:
+        ax.yaxis.set_ticks_position('left')
+
+    plt.draw_if_interactive()
+
+
+def despine(fig=None, ax=None, top=True, right=True, left=False, bottom=False):
+    """Remove the top and right spines from plot(s).
+
+    fig : matplotlib figure
+        figure to despine all axes of, default uses current figure
+
+    ax : matplotlib axes
+        specific axes object to despine
+
+    top, right, left, bottom : boolean
+        if True, remove that spine
+    """
+    if fig is None and ax is None:
+        axes = plt.gcf().axes
+    elif fig is not None:
+        axes = fig.axes
+    elif ax is not None:
+        axes = [ax]
+
+    for ax_i in axes:
+        for side in ["top", "right", "left", "bottom"]:
+            ax_i.spines[side].set_visible(not locals()[side])
+
+
+def shift_axis(which, delta, where='outward', ax=None):
+    """ Move axis from its default position
+
+    which: str
+        expected in "top", "right", "left", "bottom"
+
+    delta: float
+        how much to move the axis
+
+    where: str
+        "inwards" or "outwards" to give the shift direction
+
+    ax : matplotlib axes
+        specific axes object to despine
+    """
+    ax = ax or plt.gca()
+    if type(which) == str:
+        _w = [which]
+    else:
+        _w = which
+
+    scales = (ax.xaxis.get_scale(), ax.yaxis.get_scale())
+    lbls = (ax.xaxis.get_label(), ax.yaxis.get_label())
+
+    for wk in _w:
+        ax.spines[wk].set_position((where, delta))
+
+    ax.xaxis.set_scale(scales[0])
+    ax.yaxis.set_scale(scales[1])
+    ax.xaxis.set_label(lbls[0])
+    ax.yaxis.set_label(lbls[1])
+    plt.draw_if_interactive()
+
+
+class AutoLocator(MaxNLocator):
+    """ Auto locator (now included in all matplotlib """
+    def __init__(self, nbins=9, steps=[1, 2, 5, 10], **kwargs):
+        MaxNLocator.__init__(self, nbins=nbins, steps=steps, **kwargs )
+
+
+def setMargins(left=None, bottom=None, right=None, top=None, wspace=None, hspace=None):
+        """
+        Tune the subplot layout via the meanings (and suggested defaults) are::
+
+            left  = 0.125  # the left side of the subplots of the figure
+            right = 0.9    # the right side of the subplots of the figure
+            bottom = 0.1   # the bottom of the subplots of the figure
+            top = 0.9      # the top of the subplots of the figure
+            wspace = 0.2   # the amount of width reserved for blank space between subplots
+            hspace = 0.2   # the amount of height reserved for white space between subplots
+
+        The actual defaults are controlled by the rc file
+        """
+        plt.subplots_adjust(left, bottom, right, top, wspace, hspace)
+        plt.draw_if_interactive()
+
+
+def setNmajors(xval=None, yval=None, ax=None, mode='auto', **kwargs):
+        """
+        set the number of major ticks
+
+        see figure.MaxNLocator for kwargs
+        """
+        if ax is None:
+                ax = plt.gca()
+        if (mode == 'fixed'):
+                if xval is not None:
+                        ax.xaxis.set_major_locator(MaxNLocator(xval, **kwargs))
+                if yval is not None:
+                        ax.yaxis.set_major_locator(MaxNLocator(yval, **kwargs))
+        elif (mode == 'auto'):
+                if xval is not None:
+                        ax.xaxis.set_major_locator(AutoLocator(xval, **kwargs))
+                if yval is not None:
+                        ax.yaxis.set_major_locator(AutoLocator(yval, **kwargs))
+
+        plt.draw_if_interactive()
+
+
+def histplot(data, bins=10, range=None, normed=False, weights=None,
+             density=None, ax=None, **kwargs):
+    """ plot an histogram of data `a la R`: only bottom and left axis, with
+    dots at the bottom to represent the sample
+
+
+    data: array
+        Input values, this takes either a single array or a sequency of
+        arrays which are not required to be of the same length
+
+    bins : integer or array_like, optional
+        If an integer is given, `bins + 1` bin edges are returned,
+        consistently with :func:`numpy.histogram` for numpy version >=
+        1.3.
+
+        Unequally spaced bins are supported if `bins` is a sequence.
+
+    range : tuple or None, optional
+        The lower and upper range of the bins. Lower and upper outliers
+        are ignored. If not provided, `range` is (x.min(), x.max()). Range
+        has no effect if `bins` is a sequence.
+
+        If `bins` is a sequence or `range` is specified, autoscaling
+        is based on the specified bin range instead of the
+        range of x.
+
+
+    normed : boolean, optional
+        If `True`, the first element of the return tuple will
+        be the counts normalized to form a probability density, i.e.,
+        ``n/(len(x)`dbin)``, i.e., the integral of the histogram will sum
+        to 1. If *stacked* is also *True*, the sum of the histograms is
+        normalized to 1.
+
+        Default is ``False``
+
+    weights : rray_like or None, optional
+        An array of weights, of the same shape as `x`.  Each value in `x` only
+        contributes its associated weight towards the bin count (instead of 1).
+        If `normed` is True, the weights are normalized, so that the integral of
+        the density over the range remains 1.
+
+        Default is ``None``
+
+    **kwags are passed to :func:`plot`
+
+    Example
+    -------
+    >>> import numpy as np
+        x = np.random.normal(0, 1, 1e3)
+        histplot(x, bins=50, density=True, ls='steps-mid')
+    """
+    h, b = np.histogram(data, bins, range, normed, weights, density)
+    if ax is None:
+        ax = plt.gca()
+    x = 0.5 * (b[:-1] + b[1:])
+    l = ax.plot(x, h, **kwargs)
+
+    ax.xaxis.set_ticks_position('bottom')
+    ax.yaxis.set_ticks_position('left')
+
+    _w = ['top', 'right']
+    [ ax.spines[side].set_visible(False) for side in _w ]
+
+    for wk in ['bottom', 'left']:
+        ax.spines[wk].set_position(('outward', 10))
+
+    ylim = ax.get_ylim()
+    ax.plot(data, -0.02 * max(ylim) * np.ones(len(data)), '|',
+            color=l[0].get_color())
+    ax.set_ylim(-0.02 * max(ylim), max(ylim))
+
+
+def scatter_plot(x, y, ellipse=False, levels=[0.99, 0.95, 0.68], color='w',
+                 ax=None, **kwargs):
+    if ax is None:
+        ax = plt.gca()
+
+    if faststats is not None:
+        im, e = faststats.fastkde.fastkde(x, y, (50, 50), adjust=2.)
+        V = im.max() * np.asarray(levels)
+
+        plt.contour(im.T, levels=V, origin='lower', extent=e, linewidths=[1, 2,
+                                                                          3],
+                    colors=color)
+
+    ax.plot(x, y, 'b,', alpha=0.3, zorder=-1, rasterized=True)
+
+    if ellipse is True:
+        data = np.vstack([x, y])
+        mu = np.mean(data, axis=1)
+        cov = np.cov(data)
+        error_ellipse(mu, cov, ax=plt.gca(), edgecolor="g", ls="dashed", lw=4, zorder=2)
+
+
+def error_ellipse(mu, cov, ax=None, factor=1.0, **kwargs):
+    """
+    Plot the error ellipse at a point given its covariance matrix.
+
+    """
+    # some sane defaults
+    facecolor = kwargs.pop('facecolor', 'none')
+    edgecolor = kwargs.pop('edgecolor', 'k')
+
+    x, y = mu
+    U, S, V = np.linalg.svd(cov)
+    theta = np.degrees(np.arctan2(U[1, 0], U[0, 0]))
+    ellipsePlot = Ellipse(xy=[x, y],
+                          width=2 * np.sqrt(S[0]) * factor,
+                          height=2 * np.sqrt(S[1]) * factor,
+                          angle=theta,
+                          facecolor=facecolor, edgecolor=edgecolor, **kwargs)
+
+    if ax is None:
+        ax = plt.gca()
+    ax.add_patch(ellipsePlot)
+
+    return ellipsePlot
+
+
+def plotMAP(x, ax=None, error=0.01, frac=[0.65,0.95, 0.975], usehpd=True,
+            hist={'histtype':'step'}, vlines={}, fill={},
+            optbins={'method':'freedman'}, *args, **kwargs):
+    """
+    Plot the MAP of a given sample and add statistical info If not specified,
+    binning is assumed from the error value or using :func:`optbins` if
+    available.
+
+    Parameters
+    ----------
+    x: array
+        dataset
+
+    ax: Axes instance
+        axes object to use during plotting
+
+    error: float
+        error to consider on the estimations
+
+    frac: sequence
+        fractions of sample to highlight (def 65%, 95%, 97.5%)
+
+    hpd: bool
+        if set, uses mystats.hpd to estimate the confidence intervals
+
+    hist: dict
+        keywords forwarded to hist command
+
+    optbins: dict
+        keywords forwarded to mystats.optbins command
+
+    vlines: dict
+        keywords forwarded to vlines command
+
+    fill: dict
+        keywords forwarded to fill command
+    """
+    _x = np.ravel(x)
+    if ax is None:
+        ax = plt.gca()
+    if not ('bins' in hist):
+        bins = get_optbins(x, method=optbins['method'], ret='N')
+        n, b, p = ax.hist(_x, bins=bins, *args, **hist)
+    else:
+        n, b, p = ax.hist(_x, *args, **hist)
+    c = 0.5 * (b[:-1] + b[1:])
+    # dc = 0.5 * (b[:-1] - b[1:])
+    ind = n.argmax()
+    _ylim = ax.get_ylim()
+    if usehpd is True:
+        _hpd = hpd(_x, 1 - 0.01)
+        ax.vlines(_hpd, _ylim[0], _ylim[1], **vlines)
+        for k in frac:
+            nx = hpd(_x, 1. - k)
+            ax.fill_between(nx, _ylim[0], _ylim[1], alpha=0.4 / float(len(frac)), zorder=-1, **fill)
+    else:
+        ax.vlines(c[ind], _ylim[0], _ylim[1], **vlines)
+        cx = c[ n.argsort() ][::-1]
+        cn = n[ n.argsort() ][::-1].cumsum()
+        for k in frac:
+            sx = cx[np.where(cn <= cn[-1] * float(k))]
+            sx = [sx.min(), sx.max()]
+            ax.fill_between(sx, _ylim[0], _ylim[1], alpha=0.4 / float(len(frac)), zorder=-1, **fill)
+    ax.set_xlabel(r'Values')
+    ax.set_ylabel(r'Counts')
+
+
 class KDE_2d(object):
+    """ 2d KDE interface """
     def __init__(self, x, y, gridsize=(100, 100), extents=None,
                  nocorrelation=False, weights=None, adjust=0.5):
 
@@ -1360,162 +1685,6 @@ def plot_kde2d(x, y, gridsize=(100, 100), extents=None, nocorrelation=False,
                  nocorrelation=nocorrelation, weights=weights, adjust=adjust)
 
     kde.plot(**kwargs)
-
-
-def fastkde1D(xin, gridsize=200, extents=None, weights=None, adjust=1.):
-    """
-    A fft-based Gaussian kernel density estimate (KDE)
-    for computing the KDE on a regular grid
-
-    Note that this is a different use case than scipy's original
-    scipy.stats.kde.gaussian_kde
-
-    IMPLEMENTATION
-    --------------
-
-    Performs a gaussian kernel density estimate over a regular grid using a
-    convolution of the gaussian kernel with a 2D histogram of the data.
-
-    It computes the sparse bi-dimensional histogram of two data samples where
-    *x*, and *y* are 1-D sequences of the same length. If *weights* is None
-    (default), this is a histogram of the number of occurences of the
-    observations at (x[i], y[i]).
-    histogram of the data is a faster implementation than numpy.histogram as it
-    avoids intermediate copies and excessive memory usage!
-
-
-    This function is typically *several orders of magnitude faster* than
-    scipy.stats.kde.gaussian_kde.  For large (>1e7) numbers of points, it
-    produces an essentially identical result.
-
-    **Example usage and timing**
-
-        from scipy.stats import gaussian_kde
-
-        def npkde(x, xe):
-            kde = gaussian_kde(x)
-            r = kde.evaluate(xe)
-            return r
-        x = np.random.normal(0, 1, 1e6)
-
-        %timeit fastkde1D(x)
-        10 loops, best of 3: 31.9 ms per loop
-
-        %timeit npkde(x, xe)
-        1 loops, best of 3: 11.8 s per loop
-
-        ~ 1e4 speed up!!! However gaussian_kde is not optimized for this application
-
-    Boundary conditions on the data is corrected by using a symmetric /
-    reflection condition. Hence the limits of the dataset does not affect the
-    pdf estimate.
-
-    INPUTS
-    ------
-
-        xin:  ndarray[ndim=1]
-            The x-coords, y-coords of the input data points respectively
-
-        gridsize: int
-            A nx integer of the size of the output grid (default: 200x200)
-
-        extents: (xmin, xmax) tuple
-            tuple of the extents of output grid (default: extent of input data)
-
-        weights: ndarray[ndim=1]
-            An array of the same shape as x that weights each sample x_i
-            by w_i.  Defaults to an array of ones the same size as x (default: None)
-
-        adjust : float
-            An adjustment factor for the bw. Bandwidth becomes bw * adjust.
-
-    OUTPUTS
-    -------
-        g: ndarray[ndim=2]
-            A gridded 2D kernel density estimate of the input points.
-
-        e: (xmin, xmax, ymin, ymax) tuple
-            Extents of g
-
-    """
-    # Variable check
-    x = np.squeeze(np.asarray(xin))
-
-    # Default extents are the extent of the data
-    if extents is None:
-        xmin, xmax = x.min(), x.max()
-    else:
-        xmin, xmax = map(float, extents)
-        x = x[ (x <= xmax) & (x >= xmin) ]
-
-    n = x.size
-
-    if weights is None:
-        # Default: Weight all points equally
-        weights = np.ones(n)
-    else:
-        weights = np.squeeze(np.asarray(weights))
-        if weights.size != x.size:
-            raise ValueError('Input weights must be an array of the same size as input x & y arrays!')
-
-    # Optimize gridsize ------------------------------------------------------
-    # Make grid and discretize the data and round it to the next power of 2
-    # to optimize with the fft usage
-    if gridsize is None:
-        gridsize = np.max((len(x), 512.))
-    gridsize = 2 ** np.ceil(np.log2(gridsize))  # round to next power of 2
-
-    nx = gridsize
-
-    # Make the sparse 2d-histogram -------------------------------------------
-    dx = (xmax - xmin) / (nx - 1)
-
-    # Basically, this is just doing what np.digitize does with one less copy
-    # xyi contains the bins of each point as a 2d array [(xi,yi)]
-    xyi = x - xmin
-    xyi /= dx
-    xyi = np.floor(xyi, xyi)
-    xyi = np.vstack((xyi, np.zeros(n, dtype=int)))
-
-    # Next, make a 2D histogram of x & y.
-    # Exploit a sparse coo_matrix avoiding np.histogram2d due to excessive
-    # memory usage with many points
-    grid = coo_matrix((weights, xyi), shape=(nx, 1)).toarray()
-
-    # Kernel Preliminary Calculations ---------------------------------------
-    std_x = np.std(xyi[0])
-
-    # Scaling factor for bandwidth
-    scotts_factor = n ** (-1. / 5.) * adjust  # For n ** (-1. / (d + 4))
-
-    # Silvermann n * (d + 2) / 4.)**(-1. / (d + 4)).
-
-    # Make the gaussian kernel ---------------------------------------------
-
-    # First, determine the bandwidth using Scott's rule
-    # (note that Silvermann's rule gives the # same value for 2d datasets)
-    kern_nx = np.round(scotts_factor * 2 * np.pi * std_x)
-
-    # Then evaluate the gaussian function on the kernel grid
-    kernel = np.reshape(gaussian(kern_nx, scotts_factor * std_x), (kern_nx, 1))
-
-    # ---- Produce the kernel density estimate --------------------------------
-
-    # Convolve the histogram with the gaussian kernel
-    # use symmetric padding to correct for data boundaries in the kde
-    npad = np.min((nx, 2 * kern_nx))
-    grid = np.vstack( [grid[npad: 0: -1], grid, grid[nx: nx - npad: -1]] )
-    grid = convolve(grid, kernel, mode='same')[npad: npad + nx]
-
-    # Normalization factor to divide result by so that units are in the same
-    # units as scipy.stats.kde.gaussian_kde's output.
-    norm_factor = 2 * np.pi * std_x * std_x * scotts_factor ** 2
-    norm_factor = n * dx * np.sqrt(norm_factor)
-
-    # Normalize the result
-    grid /= norm_factor
-
-    return np.squeeze(grid), (xmin, xmax), dx
 
 
 class KDE_1d(object):
@@ -1759,8 +1928,9 @@ def hpd(x, alpha):
 def plotCorr(l, pars, plotfunc=None, lbls=None, limits=None, triangle='lower',
              devectorize=False, *args, **kwargs):
         """ Plot correlation matrix between variables
-        inputs
-        -------
+
+        Parameters
+        ----------
         l: dict
             dictionary of variables (could be a Table)
 
@@ -1787,16 +1957,13 @@ def plotCorr(l, pars, plotfunc=None, lbls=None, limits=None, triangle='lower',
 
         Example
         -------
-            import numpy as np
-            figrc.ezrc(16, 1, 16, 5)
-
+        >>> import numpy as np
+            ezrc(16, 1, 16, 5)
             d = {}
-
             for k in range(4):
                 d[k] = np.random.normal(0, k+1, 1e4)
-
             plt.figure(figsize=(8 * 1.5, 7 * 1.5))
-            plotCorr(d, d.keys(), plotfunc=figrc.scatter_plot)
+            plotCorr(d, d.keys(), plotfunc=scatter_plot)
             #plotCorr(d, d.keys(), alpha=0.2)
         """
 
@@ -1913,17 +2080,28 @@ def plotCorr(l, pars, plotfunc=None, lbls=None, limits=None, triangle='lower',
 def hinton(W, bg='grey', facecolors=('w', 'k')):
     """Draw a hinton diagram of the matrix W on the current pylab axis
 
-    Hinton diagrams are a way of visualizing numerical values in a matrix/vector,
-    popular in the neural networks and machine learning literature. The area
-    occupied by a square is proportional to a value's magnitude, and the colour
-    indicates its sign (positive/negative).
+    Hinton diagrams are a way of visualizing numerical values in a
+    matrix/vector, popular in the neural networks and machine learning
+    literature. The area occupied by a square is proportional to a value's
+    magnitude, and the colour indicates its sign (positive/negative).
+
+    Parameters
+    ----------
+    W: array [ndim=2]
+        data
+
+    bg: color string
+        background color, central value color
+
+    facecolors: tuple
+        positive and negative magnitudes
 
     Example usage:
 
-        R = np.random.normal(0, 1, (2,1000))
+    >>> R = np.random.normal(0, 1, (2,1000))
         h, ex, ey = np.histogram2d(R[0], R[1], bins=15)
         hh = h - h.T
-        hinton.hinton(hh)
+        hinton(hh)
     """
     M, N = W.shape
     square_x = np.array([-.5, .5, .5, -.5])
@@ -1939,7 +2117,8 @@ def hinton(W, bg='grey', facecolors=('w', 'k')):
     for m, Wrow in enumerate(W):
         for n, w in enumerate(Wrow):
             c = plt.signbit(w) and facecolors[1] or facecolors[0]
-            plt.fill(square_x * w / Wmax + n, square_y * w / Wmax + m, c, edgecolor=c)
+            plt.fill(square_x * w / Wmax + n, square_y * w / Wmax + m, c,
+                     edgecolor=c)
 
     plt.ylim(-0.5, M - 0.5)
     plt.xlim(-0.5, M - 0.5)
@@ -2082,8 +2261,41 @@ def nice_levels(H, N=5):
 
 
 def plot_density_map(x, y, xbins, ybins, Nlevels=4, cbar=True, weights=None):
+    """ Plot a simple histogram density map
 
-    Z = np.histogram2d(x, y, bins=(xbins, ybins), weights=weights)[0].astype(float).T
+    Parameters
+    ----------
+    x: array
+        x values to consider
+
+    y: array
+        y values to consider
+
+    xbins: int, sequence
+        bins to consider on the x-values
+
+    ybins: int, sequence
+        bins to consider on the y-values
+
+    Nlevels: int
+        number of Gaussian sigma contours to plot
+
+    cbar: bool
+        set to display a colorbar
+
+    weights: sequence
+        individual weights
+
+    Returns
+    -------
+    ax: Axes
+        plot axes
+
+    cb: Colorbar
+        colorbar or None
+    """
+    Z, xbins, ybins = np.histogram2d(x, y, bins=(xbins, ybins), weights=weights)
+    Z = Z.astype(float).T
 
     # central values
     lt = get_centers_from_bins(xbins)
