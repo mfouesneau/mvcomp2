@@ -7,7 +7,7 @@ Course LSF entry
 
 Lecturer: PD Dr. Coryn Bailer-Jones
 
-Assistant: Dr. Morgan Fouesneau
+Assistants: Dr. Morgan Fouesneau, Dr. Dae-Won Kim
 
 Summer semester 2015
 
