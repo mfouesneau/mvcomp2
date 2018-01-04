@@ -2,6 +2,7 @@
 Faculty of Physics and Astronomy, University of Heidelberg*
 
 # Computational Statistics and Data Analysis (MVComp2)
+[![Binder](https://mybinder.org/badge.svg)](https://mybinder.org/v2/gh/mfouesneau/mvcomp2/master)
 
 Course LSF entry
 
